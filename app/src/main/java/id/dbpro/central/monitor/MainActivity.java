@@ -176,7 +176,14 @@ public class MainActivity extends Activity {
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
         page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setPadding(dp(20),dp(4),dp(20),dp(30));scroll.addView(page);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(shell);
         refreshButton.setOnClickListener(v->{startRefreshSpinner(refreshButton);loadDashboard(refreshButton);});
-        themeButton.setOnClickListener(v->{dark=!dark;getPreferences(MODE_PRIVATE).edit().putBoolean("dark",dark).apply();recreate();});
+        themeButton.setOnClickListener(v->{
+            dark=!dark;
+            getPreferences(MODE_PRIVATE).edit().putBoolean("dark",dark).apply();
+            getWindow().setStatusBarColor(dark?0xFF0B1120:Color.WHITE);
+            getWindow().setNavigationBarColor(dark?0xFF0B1120:0xFFF8FAFC);
+            getWindow().getDecorView().setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            showDashboard();
+        });
         LinearLayout statusRow=new LinearLayout(this);statusRow.setGravity(Gravity.CENTER_VERTICAL);statusRow.setPadding(dp(15),dp(14),dp(15),dp(14));statusRow.setBackground(borderedBg(theme(0xFFEFF4FA,0xFF172033),15,theme(0xFFD8E2EF,0xFF334155)));
         LinearLayout htext=new LinearLayout(this);htext.setOrientation(LinearLayout.VERTICAL);serverName=text("DBpro Server",21,theme(0xFF0F172A,0xFFF8FAFC),true);htext.addView(serverName);updatedLabel=text("Menghubungkan…",12,theme(0xFF64748B,0xFF94A3B8),false);htext.addView(updatedLabel);statusRow.addView(htext,new LinearLayout.LayoutParams(0,-2,1));
         liveLabel=text("● LIVE",12,0xFF16A34A,true); liveLabel.setPadding(dp(11),dp(7),dp(11),dp(7));liveLabel.setBackground(bg(0xFFDCFCE7,30));statusRow.addView(liveLabel);
