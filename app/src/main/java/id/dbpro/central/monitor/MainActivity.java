@@ -2,6 +2,10 @@ package id.dbpro.central.monitor;
 
 import android.app.*;
 import android.os.*;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
+import android.hardware.biometrics.BiometricManager;
+import android.hardware.biometrics.BiometricPrompt;
 import android.content.*;
 import android.graphics.*;
 import android.graphics.drawable.GradientDrawable;
@@ -26,6 +30,7 @@ public class MainActivity extends Activity {
     private LinearLayout serviceList, incidentList;
     private boolean dark;
     private boolean loading;
+    private ObjectAnimator refreshAnimator;
     private final Runnable refresh = new Runnable() { public void run() { loadDashboard(); timer.postDelayed(this, 2_000); } };
 
     @Override public void onCreate(Bundle b) {
@@ -34,9 +39,52 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(dark?0xFF0B1120:Color.WHITE); getWindow().setNavigationBarColor(dark?0xFF0B1120:0xFFF8FAFC);
         getWindow().getDecorView().setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         token = getPreferences(MODE_PRIVATE).getString("token", null);
-        if (token == null) showLogin(); else showDashboard();
+        if (token == null) showLogin(); else biometricUnlockOrDashboard();
     }
-    @Override protected void onDestroy() { timer.removeCallbacksAndMessages(null); super.onDestroy(); }
+    @Override protected void onDestroy() {
+        timer.removeCallbacksAndMessages(null);
+        if(refreshAnimator!=null) refreshAnimator.cancel();
+        super.onDestroy();
+    }
+
+    private void biometricUnlockOrDashboard(){
+        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.P){ showDashboard(); return; }
+        BiometricManager manager=getSystemService(BiometricManager.class);
+        if(manager==null || manager.canAuthenticate()!=BiometricManager.BIOMETRIC_SUCCESS){ showDashboard(); return; }
+        new BiometricPrompt.Builder(this)
+            .setTitle("DBpro Central")
+            .setSubtitle("Gunakan sidik jari untuk masuk")
+            .setNegativeButton("Gunakan password",getMainExecutor(),(dialog,which)->showLogin())
+            .build()
+            .authenticate(new android.os.CancellationSignal(),getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
+                @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){ showDashboard(); }
+                @Override public void onAuthenticationError(int errorCode,CharSequence errString){
+                    if(errorCode!=BiometricPrompt.BIOMETRIC_ERROR_NEGATIVE_BUTTON && errorCode!=BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED) toast(errString.toString());
+                }
+            });
+    }
+
+    private TextView versionLabel(int color){
+        TextView v=text("v"+BuildConfig.VERSION_NAME,9,color,false);
+        v.setLetterSpacing(.04f);
+        return v;
+    }
+
+    private void applySystemInsets(View view, boolean includeTop, boolean includeBottom){
+        final int l=view.getPaddingLeft(),t=view.getPaddingTop(),r=view.getPaddingRight(),b=view.getPaddingBottom();
+        view.setOnApplyWindowInsetsListener((v,insets)->{
+            int top=0,bottom=0;
+            if(Build.VERSION.SDK_INT>=30){
+                android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars());
+                top=bars.top; bottom=bars.bottom;
+            }else{
+                top=insets.getSystemWindowInsetTop(); bottom=insets.getSystemWindowInsetBottom();
+            }
+            v.setPadding(l, t+(includeTop?top:0), r, b+(includeBottom?bottom:0));
+            return insets;
+        });
+        view.requestApplyInsets();
+    }
 
     private TextView text(String value, float sp, int color, boolean bold) {
         TextView v = new TextView(this); v.setText(value); v.setTextSize(sp); v.setTextColor(color);
@@ -77,19 +125,28 @@ public class MainActivity extends Activity {
     private Button button(String title) { Button b=new Button(this); b.setText(title); b.setTextColor(Color.WHITE); b.setTextSize(15); b.setAllCaps(false); b.setTypeface(Typeface.DEFAULT,Typeface.BOLD); b.setBackground(bg(0xFF2563EB,12)); return b; }
 
     private void root() {
-        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
+        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setClipToPadding(false); scroll.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
         page=new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setPadding(dp(20),dp(24),dp(20),dp(30)); scroll.addView(page); setContentView(scroll);
+        applySystemInsets(scroll,true,true);
     }
     private void showLogin() {
         timer.removeCallbacksAndMessages(null);getWindow().setStatusBarColor(Color.WHITE);getWindow().setNavigationBarColor(Color.WHITE);getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);root(); page.setBackgroundColor(Color.WHITE); Space s=new Space(this); page.addView(s,new LinearLayout.LayoutParams(1,dp(58)));
+        LinearLayout loginBrand=new LinearLayout(this);loginBrand.setOrientation(LinearLayout.VERTICAL);loginBrand.setGravity(Gravity.START);
         ImageView logo=new ImageView(this); logo.setImageResource(id.dbpro.central.monitor.R.drawable.dbpro_central_logo); logo.setScaleType(ImageView.ScaleType.CENTER_CROP); logo.setContentDescription("DBpro Central");styleLoginLogo(logo);
-        LinearLayout.LayoutParams logoParams=new LinearLayout.LayoutParams(dp(180),dp(180));logoParams.gravity=Gravity.CENTER_HORIZONTAL;page.addView(logo,logoParams);
-        Space gap=new Space(this); page.addView(gap,new LinearLayout.LayoutParams(1,dp(22)));
+        loginBrand.addView(logo,new LinearLayout.LayoutParams(dp(148),dp(148)));
+        TextView loginVersion=versionLabel(0xFF64748B);LinearLayout.LayoutParams lvp=new LinearLayout.LayoutParams(-2,-2);lvp.leftMargin=dp(11);lvp.topMargin=dp(-4);loginBrand.addView(loginVersion,lvp);
+        LinearLayout.LayoutParams brandParams=new LinearLayout.LayoutParams(dp(170),-2);brandParams.gravity=Gravity.CENTER_HORIZONTAL;page.addView(loginBrand,brandParams);
+        Space gap=new Space(this); page.addView(gap,new LinearLayout.LayoutParams(1,dp(18)));
         TextView loginTitle=text("CENTRAL DASHBOARD",20,0xFF0F172A,true);loginTitle.setGravity(Gravity.CENTER);page.addView(loginTitle,new LinearLayout.LayoutParams(-1,-2));
         EditText email=field("Email",false), pass=field("Password",true);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(54)); fp.topMargin=dp(24); page.addView(email,fp);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(54)); pp.topMargin=dp(12); page.addView(pass,pp);
         Button login=button("Masuk"); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(54)); bp.topMargin=dp(18); page.addView(login,bp);
+        if(token!=null && Build.VERSION.SDK_INT>=Build.VERSION_CODES.P){
+            Button biometric=button("Masuk dengan sidik jari");biometric.setTextColor(0xFF2563EB);biometric.setBackground(borderedBg(Color.WHITE,12,0xFFBFDBFE));
+            LinearLayout.LayoutParams bioParams=new LinearLayout.LayoutParams(-1,dp(50));bioParams.topMargin=dp(10);page.addView(biometric,bioParams);
+            biometric.setOnClickListener(v->biometricUnlockOrDashboard());
+        }
         pass.setImeOptions(EditorInfo.IME_ACTION_DONE); login.setOnClickListener(v -> doLogin(email.getText().toString(),pass.getText().toString(),login));
     }
     private void doLogin(String email,String password,Button b) {
@@ -105,19 +162,25 @@ public class MainActivity extends Activity {
         return "Login gagal: "+detail;
     }
     private void showDashboard() {
-        LinearLayout shell=new LinearLayout(this);shell.setOrientation(LinearLayout.VERTICAL);shell.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
-        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(20),dp(4),dp(20),dp(4));header.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
+        LinearLayout shell=new LinearLayout(this);shell.setOrientation(LinearLayout.VERTICAL);shell.setClipToPadding(false);shell.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
+        applySystemInsets(shell,true,true);
+        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(20),dp(2),dp(20),dp(2));header.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
         TextView themeButton=text(dark?"☀":"☾",26,theme(0xFF334155,0xFFF8FAFC),false);themeButton.setGravity(Gravity.CENTER);themeButton.setContentDescription(dark?"Gunakan tema terang":"Gunakan tema gelap");header.addView(themeButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
-        ImageView mark=new ImageView(this); mark.setImageResource(id.dbpro.central.monitor.R.drawable.dbpro_central_logo); mark.setScaleType(ImageView.ScaleType.CENTER_CROP); mark.setContentDescription("DBpro Central");styleLogo(mark);header.addView(mark,new LinearLayout.LayoutParams(0,dp(64),1));
+        LinearLayout brand=new LinearLayout(this);brand.setOrientation(LinearLayout.VERTICAL);brand.setGravity(Gravity.CENTER);
+        ImageView mark=new ImageView(this); mark.setImageResource(id.dbpro.central.monitor.R.drawable.dbpro_central_logo); mark.setScaleType(ImageView.ScaleType.CENTER_CROP); mark.setContentDescription("DBpro Central");styleLogo(mark);
+        brand.addView(mark,new LinearLayout.LayoutParams(dp(54),dp(54)));
+        TextView version=versionLabel(theme(0xFF64748B,0xFF94A3B8));LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(-2,-2);vp.topMargin=dp(-7);brand.addView(version,vp);
+        header.addView(brand,new LinearLayout.LayoutParams(0,dp(66),1));
         TextView refreshButton=text("⟳",28,theme(0xFF2563EB,0xFF60A5FA),false); refreshButton.setGravity(Gravity.CENTER); refreshButton.setContentDescription("Refresh data monitoring");header.addView(refreshButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
-        shell.addView(header,new LinearLayout.LayoutParams(-1,dp(72)));
+        shell.addView(header,new LinearLayout.LayoutParams(-1,dp(70)));
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
         page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setPadding(dp(20),dp(4),dp(20),dp(30));scroll.addView(page);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(shell);
-        refreshButton.setOnClickListener(v->{refreshButton.setText("…");refreshButton.setEnabled(false);loadDashboard(refreshButton);});
+        refreshButton.setOnClickListener(v->{startRefreshSpinner(refreshButton);loadDashboard(refreshButton);});
         themeButton.setOnClickListener(v->{dark=!dark;getPreferences(MODE_PRIVATE).edit().putBoolean("dark",dark).apply();recreate();});
-        LinearLayout statusRow=new LinearLayout(this);statusRow.setGravity(Gravity.CENTER_VERTICAL);statusRow.setPadding(0,dp(14),0,0);
+        LinearLayout statusRow=new LinearLayout(this);statusRow.setGravity(Gravity.CENTER_VERTICAL);statusRow.setPadding(dp(15),dp(14),dp(15),dp(14));statusRow.setBackground(borderedBg(theme(0xFFEFF4FA,0xFF172033),15,theme(0xFFD8E2EF,0xFF334155)));
         LinearLayout htext=new LinearLayout(this);htext.setOrientation(LinearLayout.VERTICAL);serverName=text("DBpro Server",21,theme(0xFF0F172A,0xFFF8FAFC),true);htext.addView(serverName);updatedLabel=text("Menghubungkan…",12,theme(0xFF64748B,0xFF94A3B8),false);htext.addView(updatedLabel);statusRow.addView(htext,new LinearLayout.LayoutParams(0,-2,1));
-        liveLabel=text("● LIVE",12,0xFF16A34A,true); liveLabel.setPadding(dp(11),dp(7),dp(11),dp(7));liveLabel.setBackground(bg(0xFFDCFCE7,30));statusRow.addView(liveLabel);page.addView(statusRow);
+        liveLabel=text("● LIVE",12,0xFF16A34A,true); liveLabel.setPadding(dp(11),dp(7),dp(11),dp(7));liveLabel.setBackground(bg(0xFFDCFCE7,30));statusRow.addView(liveLabel);
+        LinearLayout.LayoutParams statusParams=new LinearLayout.LayoutParams(-1,-2);statusParams.topMargin=dp(10);page.addView(statusRow,statusParams);
         cpu=new MetricCard(this,"CPU Usage",0xFF1677FF,dark);ram=new MetricCard(this,"Memory Usage",0xFFFF1677,dark);disk=new MetricCard(this,"Disk Space",0xFFF59E0B,dark);network=new MetricCard(this,"Network I/O",0xFFD946EF,dark);
         page.addView(cpu,cardParams());page.addView(ram,cardParams());page.addView(disk,cardParams());page.addView(network,cardParams());
         serviceList=sectionBox("SERVICE & CONTAINER");
@@ -129,7 +192,18 @@ public class MainActivity extends Activity {
     private LinearLayout sectionBox(String title){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(15),dp(14),dp(15),dp(15));box.setBackground(borderedBg(theme(Color.WHITE,0xFF111827),15,theme(0xFFE2E8F0,0xFF334155)));TextView t=text(title,15,theme(0xFF0F172A,0xFFF8FAFC),true);box.addView(t);LinearLayout list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);box.addView(list,new LinearLayout.LayoutParams(-1,-2));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(18);page.addView(box,p);return list;}
     private void loadDashboard(){loadDashboard(null);}
     private void loadDashboard(TextView refreshButton){if(loading){finishRefresh(refreshButton);return;}loading=true;new Thread(()->{try{JSONObject d=request("monitoring/dashboard","GET",null,token);runOnUiThread(()->{render(d);finishRefresh(refreshButton);loading=false;});}catch(Exception e){runOnUiThread(()->{liveLabel.setText("● OFFLINE");liveLabel.setTextColor(0xFFDC2626);liveLabel.setBackground(bg(0xFFFEE2E2,30));updatedLabel.setText("Tidak dapat mengambil data");finishRefresh(refreshButton);loading=false;});}}).start();}
-    private void finishRefresh(TextView refreshButton){if(refreshButton!=null){refreshButton.setText("⟳");refreshButton.setEnabled(true);}}
+    private void startRefreshSpinner(TextView refreshButton){
+        if(refreshAnimator!=null) refreshAnimator.cancel();
+        refreshButton.setEnabled(false);
+        refreshAnimator=ObjectAnimator.ofFloat(refreshButton,"rotation",0f,360f);
+        refreshAnimator.setDuration(700);refreshAnimator.setRepeatCount(ValueAnimator.INFINITE);refreshAnimator.start();
+    }
+    private void finishRefresh(TextView refreshButton){
+        if(refreshButton!=null){
+            if(refreshAnimator!=null){refreshAnimator.cancel();refreshAnimator=null;}
+            refreshButton.setRotation(0f);refreshButton.setText("⟳");refreshButton.setEnabled(true);
+        }
+    }
     private void render(JSONObject d){
         liveLabel.setText("● LIVE");liveLabel.setTextColor(0xFF16A34A);liveLabel.setBackground(bg(0xFFDCFCE7,30));serverName.setText(d.optString("serverName","DBpro Server"));updatedLabel.setText("Diperbarui " + d.optString("updatedAt","sekarang"));
         bind(cpu,d.optJSONObject("cpu"));bind(ram,d.optJSONObject("memory"));bind(disk,d.optJSONObject("disk"));bind(network,d.optJSONObject("network"));
