@@ -74,7 +74,7 @@ public class MainActivity extends Activity {
     }
 
     private TextView versionLabel(int color){
-        TextView v=text("v"+BuildConfig.VERSION_NAME,9,color,false);
+        TextView v=text("v"+BuildConfig.VERSION_NAME,11,color,false);
         v.setLetterSpacing(.04f);
         return v;
     }
@@ -151,12 +151,12 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(54)); pp.topMargin=dp(12); page.addView(pass,pp);
         Button login=button("Masuk"); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(54)); bp.topMargin=dp(18); page.addView(login,bp);
         String savedToken=getPreferences(MODE_PRIVATE).getString("token",null);
-        if(savedToken!=null && Build.VERSION.SDK_INT>=Build.VERSION_CODES.P){
+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.P){
             BiometricManager manager=getSystemService(BiometricManager.class);
             if(manager!=null && manager.canAuthenticate()==BiometricManager.BIOMETRIC_SUCCESS){
-                Button biometric=button("Masuk dengan sidik jari");biometric.setTextColor(0xFF2563EB);biometric.setBackground(borderedBg(Color.WHITE,12,0xFFBFDBFE));
+                Button biometric=button(savedToken!=null?"Masuk dengan sidik jari":"Aktifkan sidik jari setelah login");biometric.setTextColor(0xFF2563EB);biometric.setBackground(borderedBg(Color.WHITE,12,0xFFBFDBFE));
                 LinearLayout.LayoutParams bioParams=new LinearLayout.LayoutParams(-1,dp(50));bioParams.topMargin=dp(10);page.addView(biometric,bioParams);
-                biometric.setOnClickListener(v->biometricUnlockOrDashboard());
+                biometric.setOnClickListener(v->{ if(savedToken!=null) biometricUnlockOrDashboard(); else toast("Login dengan email dan password sekali dulu. Setelah itu sidik jari bisa digunakan."); });
             }
         }
         Space footerSpacer=new Space(this);
@@ -208,7 +208,7 @@ public class MainActivity extends Activity {
         TextView themeButton=text(dark?"☀":"☾",26,theme(0xFF334155,0xFFF8FAFC),false);themeButton.setGravity(Gravity.CENTER);themeButton.setContentDescription(dark?"Gunakan tema terang":"Gunakan tema gelap");header.addView(themeButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
         LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER);
         ImageView mark=new ImageView(this); mark.setImageResource(id.dbpro.central.monitor.R.drawable.dbpro_central_logo); mark.setScaleType(ImageView.ScaleType.CENTER_CROP); mark.setContentDescription("DBpro Central");styleLogo(mark);
-        brand.addView(mark,new LinearLayout.LayoutParams(dp(42),dp(42)));
+        brand.addView(mark,new LinearLayout.LayoutParams(dp(50),dp(50)));
         header.addView(brand,new LinearLayout.LayoutParams(0,dp(58),1));
         TextView refreshButton=text("⟳",28,theme(0xFF2563EB,0xFF60A5FA),false); refreshButton.setGravity(Gravity.CENTER); refreshButton.setContentDescription("Refresh data monitoring");header.addView(refreshButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
         shell.addView(header,new LinearLayout.LayoutParams(-1,dp(62)));
