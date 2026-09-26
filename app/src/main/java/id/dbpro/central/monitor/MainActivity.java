@@ -31,7 +31,7 @@ public class MainActivity extends Activity {
     private boolean dark;
     private boolean loading;
     private ObjectAnimator refreshAnimator;
-    private final Runnable refresh = new Runnable() { public void run() { loadDashboard(); timer.postDelayed(this, 2_000); } };
+    private final Runnable refresh = new Runnable() { public void run() { loadDashboard(); timer.postDelayed(this, 8_000); } };
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
@@ -48,8 +48,10 @@ public class MainActivity extends Activity {
     }
 
     private void biometricUnlockOrDashboard(){
+        token=getPreferences(MODE_PRIVATE).getString("token",null);
         if(token==null){
-            toast("Login dengan email dan password sekali dulu untuk mengaktifkan sidik jari.");
+            toast("Belum ada sesi tersimpan. Silakan login dengan email dan password terlebih dahulu.");
+            showLogin();
             return;
         }
         if(Build.VERSION.SDK_INT < Build.VERSION_CODES.P){ showDashboard(); return; }
@@ -141,11 +143,6 @@ public class MainActivity extends Activity {
         FrameLayout loginBrand=new FrameLayout(this);
         ImageView logo=new ImageView(this); logo.setImageResource(id.dbpro.central.monitor.R.drawable.dbpro_central_logo); logo.setScaleType(ImageView.ScaleType.CENTER_CROP); logo.setContentDescription("DBpro Central");styleLoginLogo(logo);
         loginBrand.addView(logo,new FrameLayout.LayoutParams(dp(148),dp(148),Gravity.CENTER));
-        TextView loginVersion=versionLabel(0xFF64748B);
-        FrameLayout.LayoutParams lvp=new FrameLayout.LayoutParams(-2,-2,Gravity.START|Gravity.BOTTOM);
-        lvp.leftMargin=dp(22);
-        lvp.bottomMargin=dp(18);
-        loginBrand.addView(loginVersion,lvp);
         LinearLayout.LayoutParams brandParams=new LinearLayout.LayoutParams(dp(170),dp(148));brandParams.gravity=Gravity.CENTER_HORIZONTAL;page.addView(loginBrand,brandParams);
         Space gap=new Space(this); page.addView(gap,new LinearLayout.LayoutParams(1,dp(18)));
         TextView loginTitle=text("CENTRAL DASHBOARD",20,0xFF0F172A,true);loginTitle.setGravity(Gravity.CENTER);page.addView(loginTitle,new LinearLayout.LayoutParams(-1,-2));
@@ -153,7 +150,8 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(54)); fp.topMargin=dp(24); page.addView(email,fp);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(54)); pp.topMargin=dp(12); page.addView(pass,pp);
         Button login=button("Masuk"); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(54)); bp.topMargin=dp(18); page.addView(login,bp);
-        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.P){
+        String savedToken=getPreferences(MODE_PRIVATE).getString("token",null);
+        if(savedToken!=null && Build.VERSION.SDK_INT>=Build.VERSION_CODES.P){
             BiometricManager manager=getSystemService(BiometricManager.class);
             if(manager!=null && manager.canAuthenticate()==BiometricManager.BIOMETRIC_SUCCESS){
                 Button biometric=button("Masuk dengan sidik jari");biometric.setTextColor(0xFF2563EB);biometric.setBackground(borderedBg(Color.WHITE,12,0xFFBFDBFE));
@@ -161,12 +159,40 @@ public class MainActivity extends Activity {
                 biometric.setOnClickListener(v->biometricUnlockOrDashboard());
             }
         }
-        pass.setImeOptions(EditorInfo.IME_ACTION_DONE); login.setOnClickListener(v -> doLogin(email.getText().toString(),pass.getText().toString(),login));
+        Space footerSpacer=new Space(this);
+        page.addView(footerSpacer,new LinearLayout.LayoutParams(1,0,1f));
+        TextView footerVersion=versionLabel(0xFF94A3B8);
+        footerVersion.setGravity(Gravity.CENTER);
+        footerVersion.setPadding(0,dp(20),0,dp(4));
+        page.addView(footerVersion,new LinearLayout.LayoutParams(-1,-2));
+        pass.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        pass.setOnEditorActionListener((v,actionId,event)->{
+            if(actionId==EditorInfo.IME_ACTION_DONE){
+                doLogin(email.getText().toString(),pass.getText().toString(),login);
+                return true;
+            }
+            return false;
+        });
+        login.setOnClickListener(v -> doLogin(email.getText().toString(),pass.getText().toString(),login));
     }
     private void doLogin(String email,String password,Button b) {
-        if(email.trim().isEmpty()||password.trim().isEmpty()){toast("Email dan password wajib diisi");return;} b.setEnabled(false); b.setText("Memeriksa…");
-        new Thread(() -> { try { JSONObject q=new JSONObject().put("email",email.trim()).put("password",password); JSONObject r=request("auth/login","POST",q,null); token=r.getString("accessToken"); getPreferences(MODE_PRIVATE).edit().putString("token",token).apply(); runOnUiThread(this::showDashboard); }
-        catch(Exception e){String detail=e.getMessage();runOnUiThread(()->{b.setEnabled(true);b.setText("Masuk");toast(loginError(detail));});} }).start();
+        if(email.trim().isEmpty()||password.trim().isEmpty()){toast("Email dan password wajib diisi");return;}
+        b.setEnabled(false); b.setText("Menghubungkan…");
+        final long started=SystemClock.elapsedRealtime();
+        new Thread(() -> {
+            try {
+                JSONObject q=new JSONObject().put("email",email.trim()).put("password",password);
+                JSONObject r=request("auth/login","POST",q,null);
+                token=r.getString("accessToken");
+                getPreferences(MODE_PRIVATE).edit().putString("token",token).putBoolean("biometric_ready",true).apply();
+                android.util.Log.i("DBproLogin","Login sukses dalam "+(SystemClock.elapsedRealtime()-started)+" ms");
+                runOnUiThread(this::showDashboard);
+            } catch(Exception e){
+                android.util.Log.e("DBproLogin","Login gagal setelah "+(SystemClock.elapsedRealtime()-started)+" ms",e);
+                String detail=e.getMessage();
+                runOnUiThread(()->{b.setEnabled(true);b.setText("Masuk");toast(loginError(detail));});
+            }
+        }).start();
     }
 
     private String loginError(String detail){
@@ -180,13 +206,12 @@ public class MainActivity extends Activity {
         applySystemInsets(shell,true,true);
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(20),dp(2),dp(20),dp(2));header.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
         TextView themeButton=text(dark?"☀":"☾",26,theme(0xFF334155,0xFFF8FAFC),false);themeButton.setGravity(Gravity.CENTER);themeButton.setContentDescription(dark?"Gunakan tema terang":"Gunakan tema gelap");header.addView(themeButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
-        LinearLayout brand=new LinearLayout(this);brand.setOrientation(LinearLayout.VERTICAL);brand.setGravity(Gravity.CENTER);
+        LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER);
         ImageView mark=new ImageView(this); mark.setImageResource(id.dbpro.central.monitor.R.drawable.dbpro_central_logo); mark.setScaleType(ImageView.ScaleType.CENTER_CROP); mark.setContentDescription("DBpro Central");styleLogo(mark);
-        brand.addView(mark,new LinearLayout.LayoutParams(dp(54),dp(54)));
-        TextView version=versionLabel(theme(0xFF64748B,0xFF94A3B8));LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(-2,-2);vp.topMargin=dp(-7);brand.addView(version,vp);
-        header.addView(brand,new LinearLayout.LayoutParams(0,dp(66),1));
+        brand.addView(mark,new LinearLayout.LayoutParams(dp(42),dp(42)));
+        header.addView(brand,new LinearLayout.LayoutParams(0,dp(58),1));
         TextView refreshButton=text("⟳",28,theme(0xFF2563EB,0xFF60A5FA),false); refreshButton.setGravity(Gravity.CENTER); refreshButton.setContentDescription("Refresh data monitoring");header.addView(refreshButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
-        shell.addView(header,new LinearLayout.LayoutParams(-1,dp(70)));
+        shell.addView(header,new LinearLayout.LayoutParams(-1,dp(62)));
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
         page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setPadding(dp(20),dp(4),dp(20),dp(30));scroll.addView(page);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(shell);
         refreshButton.setOnClickListener(v->{startRefreshSpinner(refreshButton);loadDashboard(refreshButton);});
@@ -207,7 +232,7 @@ public class MainActivity extends Activity {
         serviceList=sectionBox("SERVICE & CONTAINER");
         incidentList=sectionBox("RIWAYAT GANGGUAN");
         TextView logout=text("Keluar dari akun",14,0xFFDC2626,true);logout.setGravity(Gravity.CENTER);logout.setPadding(0,dp(24),0,dp(12));logout.setOnClickListener(v->{getPreferences(MODE_PRIVATE).edit().clear().apply();token=null;showLogin();});page.addView(logout);
-        timer.removeCallbacksAndMessages(null);loadDashboard(null);timer.postDelayed(refresh,2_000);
+        timer.removeCallbacksAndMessages(null);loadDashboard(null);timer.postDelayed(refresh,8_000);
     }
     private LinearLayout.LayoutParams cardParams(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(246));p.topMargin=dp(12);return p;}
     private LinearLayout sectionBox(String title){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(15),dp(14),dp(15),dp(15));box.setBackground(borderedBg(theme(Color.WHITE,0xFF111827),15,theme(0xFFE2E8F0,0xFF334155)));TextView t=text(title,15,theme(0xFF0F172A,0xFFF8FAFC),true);box.addView(t);LinearLayout list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);box.addView(list,new LinearLayout.LayoutParams(-1,-2));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(18);page.addView(box,p);return list;}
@@ -233,7 +258,7 @@ public class MainActivity extends Activity {
     }
     private void bind(MetricCard c,JSONObject o){if(o==null)return;JSONArray a=o.optJSONArray("series");float[] x=new float[a==null?0:a.length()];for(int i=0;i<x.length;i++)x[i]=(float)a.optDouble(i);c.setData(o.optDouble("value"),o.optString("unit","%"),o.optDouble("max",100),o.optString("subtitle","Realtime"),x);}
     private View row(String name,String status,String detail){LinearLayout r=new LinearLayout(this);r.setGravity(Gravity.CENTER_VERTICAL);r.setPadding(0,dp(13),0,dp(8));LinearLayout t=new LinearLayout(this);t.setOrientation(LinearLayout.VERTICAL);t.addView(text(name,14,theme(0xFF0F172A,0xFFF8FAFC),true));t.addView(text(detail,12,theme(0xFF64748B,0xFF94A3B8),false));r.addView(t,new LinearLayout.LayoutParams(0,-2,1));boolean ok=status.equals("running")||status.equals("healthy");TextView st=text(status.toUpperCase(),10,ok?0xFF16A34A:0xFFDC2626,true);r.addView(st);return r;}
-    private JSONObject request(String path,String method,JSONObject body,String bearer)throws Exception{HttpURLConnection c=(HttpURLConnection)new URL(BuildConfig.API_BASE_URL+path).openConnection();c.setRequestMethod(method);c.setConnectTimeout(30000);c.setReadTimeout(30000);c.setRequestProperty("Accept","application/json");c.setRequestProperty("Content-Type","application/json");if(bearer!=null)c.setRequestProperty("Authorization","Bearer "+bearer);if(body!=null){c.setDoOutput(true);try(OutputStream o=c.getOutputStream()){o.write(body.toString().getBytes(StandardCharsets.UTF_8));}}int code=c.getResponseCode();InputStream in=code<400?c.getInputStream():c.getErrorStream();String raw=readUtf8(in);if(code==401&&bearer!=null){runOnUiThread(()->{getPreferences(MODE_PRIVATE).edit().clear().apply();showLogin();});throw new IOException(raw); }if(code>=400)throw new IOException(raw);return new JSONObject(raw);}
+    private JSONObject request(String path,String method,JSONObject body,String bearer)throws Exception{HttpURLConnection c=(HttpURLConnection)new URL(BuildConfig.API_BASE_URL+path).openConnection();c.setRequestMethod(method);c.setConnectTimeout(10000);c.setReadTimeout(15000);c.setRequestProperty("Accept","application/json");c.setRequestProperty("Content-Type","application/json");if(bearer!=null)c.setRequestProperty("Authorization","Bearer "+bearer);if(body!=null){c.setDoOutput(true);try(OutputStream o=c.getOutputStream()){o.write(body.toString().getBytes(StandardCharsets.UTF_8));}}int code=c.getResponseCode();InputStream in=code<400?c.getInputStream():c.getErrorStream();String raw=readUtf8(in);if(code==401&&bearer!=null){runOnUiThread(()->{getPreferences(MODE_PRIVATE).edit().clear().apply();showLogin();});throw new IOException(raw); }if(code>=400)throw new IOException(raw);return new JSONObject(raw);}
     private String readUtf8(InputStream in)throws IOException{ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1)out.write(b,0,n);return out.toString("UTF-8");}
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
 
