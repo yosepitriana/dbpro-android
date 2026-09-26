@@ -48,9 +48,16 @@ public class MainActivity extends Activity {
     }
 
     private void biometricUnlockOrDashboard(){
+        if(token==null){
+            toast("Login dengan email dan password sekali dulu untuk mengaktifkan sidik jari.");
+            return;
+        }
         if(Build.VERSION.SDK_INT < Build.VERSION_CODES.P){ showDashboard(); return; }
         BiometricManager manager=getSystemService(BiometricManager.class);
-        if(manager==null || manager.canAuthenticate()!=BiometricManager.BIOMETRIC_SUCCESS){ showDashboard(); return; }
+        if(manager==null || manager.canAuthenticate()!=BiometricManager.BIOMETRIC_SUCCESS){
+            toast("Sidik jari belum tersedia atau belum diaktifkan di HP.");
+            return;
+        }
         new BiometricPrompt.Builder(this)
             .setTitle("DBpro Central")
             .setSubtitle("Gunakan sidik jari untuk masuk")
@@ -142,10 +149,13 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(54)); fp.topMargin=dp(24); page.addView(email,fp);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(54)); pp.topMargin=dp(12); page.addView(pass,pp);
         Button login=button("Masuk"); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(54)); bp.topMargin=dp(18); page.addView(login,bp);
-        if(token!=null && Build.VERSION.SDK_INT>=Build.VERSION_CODES.P){
-            Button biometric=button("Masuk dengan sidik jari");biometric.setTextColor(0xFF2563EB);biometric.setBackground(borderedBg(Color.WHITE,12,0xFFBFDBFE));
-            LinearLayout.LayoutParams bioParams=new LinearLayout.LayoutParams(-1,dp(50));bioParams.topMargin=dp(10);page.addView(biometric,bioParams);
-            biometric.setOnClickListener(v->biometricUnlockOrDashboard());
+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.P){
+            BiometricManager manager=getSystemService(BiometricManager.class);
+            if(manager!=null && manager.canAuthenticate()==BiometricManager.BIOMETRIC_SUCCESS){
+                Button biometric=button("Masuk dengan sidik jari");biometric.setTextColor(0xFF2563EB);biometric.setBackground(borderedBg(Color.WHITE,12,0xFFBFDBFE));
+                LinearLayout.LayoutParams bioParams=new LinearLayout.LayoutParams(-1,dp(50));bioParams.topMargin=dp(10);page.addView(biometric,bioParams);
+                biometric.setOnClickListener(v->biometricUnlockOrDashboard());
+            }
         }
         pass.setImeOptions(EditorInfo.IME_ACTION_DONE); login.setOnClickListener(v -> doLogin(email.getText().toString(),pass.getText().toString(),login));
     }
