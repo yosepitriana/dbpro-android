@@ -55,22 +55,25 @@ public class MainActivity extends Activity {
             return;
         }
         if(Build.VERSION.SDK_INT < Build.VERSION_CODES.P){ showDashboard(); return; }
-        BiometricManager manager=getSystemService(BiometricManager.class);
-        if(manager==null || manager.canAuthenticate()!=BiometricManager.BIOMETRIC_SUCCESS){
-            toast("Sidik jari belum tersedia atau belum diaktifkan di HP.");
-            return;
+        try {
+            new BiometricPrompt.Builder(this)
+                .setTitle("DBpro Central")
+                .setSubtitle("Gunakan sidik jari untuk masuk")
+                .setNegativeButton("Gunakan password",getMainExecutor(),(dialog,which)->showLogin())
+                .build()
+                .authenticate(new android.os.CancellationSignal(),getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
+                    @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){ showDashboard(); }
+                    @Override public void onAuthenticationError(int errorCode,CharSequence errString){
+                        if(errorCode==BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED || errorCode==BiometricPrompt.BIOMETRIC_ERROR_CANCELED) return;
+                        toast("Sidik jari tidak tersedia. Silakan masuk dengan password.");
+                        showLogin();
+                    }
+                });
+        } catch(Exception e) {
+            android.util.Log.e("DBproBiometric","Gagal membuka biometric prompt",e);
+            toast("Sidik jari tidak tersedia. Silakan masuk dengan password.");
+            showLogin();
         }
-        new BiometricPrompt.Builder(this)
-            .setTitle("DBpro Central")
-            .setSubtitle("Gunakan sidik jari untuk masuk")
-            .setNegativeButton("Gunakan password",getMainExecutor(),(dialog,which)->showLogin())
-            .build()
-            .authenticate(new android.os.CancellationSignal(),getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
-                @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){ showDashboard(); }
-                @Override public void onAuthenticationError(int errorCode,CharSequence errString){
-                    if(errorCode!=BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED && errorCode!=BiometricPrompt.BIOMETRIC_ERROR_CANCELED) toast(errString.toString());
-                }
-            });
     }
 
     private TextView versionLabel(int color){
@@ -199,10 +202,10 @@ public class MainActivity extends Activity {
         TextView themeButton=text(dark?"☀":"☾",26,theme(0xFF334155,0xFFF8FAFC),false);themeButton.setGravity(Gravity.CENTER);themeButton.setContentDescription(dark?"Gunakan tema terang":"Gunakan tema gelap");header.addView(themeButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
         LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER);
         ImageView mark=new ImageView(this); mark.setImageResource(id.dbpro.central.monitor.R.drawable.dbpro_central_logo); mark.setScaleType(ImageView.ScaleType.CENTER_CROP); mark.setContentDescription("DBpro Central");styleLogo(mark);
-        brand.addView(mark,new LinearLayout.LayoutParams(dp(50),dp(50)));
-        header.addView(brand,new LinearLayout.LayoutParams(0,dp(58),1));
+        brand.addView(mark,new LinearLayout.LayoutParams(dp(58),dp(58)));
+        header.addView(brand,new LinearLayout.LayoutParams(0,dp(64),1));
         TextView refreshButton=text("⟳",28,theme(0xFF2563EB,0xFF60A5FA),false); refreshButton.setGravity(Gravity.CENTER); refreshButton.setContentDescription("Refresh data monitoring");header.addView(refreshButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
-        shell.addView(header,new LinearLayout.LayoutParams(-1,dp(62)));
+        shell.addView(header,new LinearLayout.LayoutParams(-1,dp(68)));
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(theme(0xFFF8FAFC,0xFF0B1120));
         page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setPadding(dp(20),dp(4),dp(20),dp(30));scroll.addView(page);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(shell);
         refreshButton.setOnClickListener(v->{startRefreshSpinner(refreshButton);loadDashboard(refreshButton);});
