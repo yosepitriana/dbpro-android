@@ -59,7 +59,7 @@ public class MainActivity extends Activity {
             .authenticate(new android.os.CancellationSignal(),getMainExecutor(),new BiometricPrompt.AuthenticationCallback(){
                 @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){ showDashboard(); }
                 @Override public void onAuthenticationError(int errorCode,CharSequence errString){
-                    if(errorCode!=BiometricPrompt.BIOMETRIC_ERROR_NEGATIVE_BUTTON && errorCode!=BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED) toast(errString.toString());
+                    if(errorCode!=BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED && errorCode!=BiometricPrompt.BIOMETRIC_ERROR_CANCELED) toast(errString.toString());
                 }
             });
     }
