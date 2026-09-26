@@ -150,15 +150,6 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(54)); fp.topMargin=dp(24); page.addView(email,fp);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(54)); pp.topMargin=dp(12); page.addView(pass,pp);
         Button login=button("Masuk"); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(54)); bp.topMargin=dp(18); page.addView(login,bp);
-        String savedToken=getPreferences(MODE_PRIVATE).getString("token",null);
-        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.P){
-            BiometricManager manager=getSystemService(BiometricManager.class);
-            if(manager!=null && manager.canAuthenticate()==BiometricManager.BIOMETRIC_SUCCESS){
-                Button biometric=button(savedToken!=null?"Masuk dengan sidik jari":"Aktifkan sidik jari setelah login");biometric.setTextColor(0xFF2563EB);biometric.setBackground(borderedBg(Color.WHITE,12,0xFFBFDBFE));
-                LinearLayout.LayoutParams bioParams=new LinearLayout.LayoutParams(-1,dp(50));bioParams.topMargin=dp(10);page.addView(biometric,bioParams);
-                biometric.setOnClickListener(v->{ if(savedToken!=null) biometricUnlockOrDashboard(); else toast("Login dengan email dan password sekali dulu. Setelah itu sidik jari bisa digunakan."); });
-            }
-        }
         Space footerSpacer=new Space(this);
         page.addView(footerSpacer,new LinearLayout.LayoutParams(1,0,1f));
         TextView footerVersion=versionLabel(0xFF94A3B8);
