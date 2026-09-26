@@ -9,8 +9,8 @@ android {
         applicationId = "id.dbpro.central.monitor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 7
+        versionName = "1.0.6"
         buildConfigField("String", "API_BASE_URL", "\"https://central-app.dbpro.id/api/v1/\"")
     }
     buildFeatures { buildConfig = true }
