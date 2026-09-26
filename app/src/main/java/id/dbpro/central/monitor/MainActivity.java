@@ -138,11 +138,15 @@ public class MainActivity extends Activity {
     }
     private void showLogin() {
         timer.removeCallbacksAndMessages(null);getWindow().setStatusBarColor(Color.WHITE);getWindow().setNavigationBarColor(Color.WHITE);getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);root(); page.setBackgroundColor(Color.WHITE); Space s=new Space(this); page.addView(s,new LinearLayout.LayoutParams(1,dp(58)));
-        LinearLayout loginBrand=new LinearLayout(this);loginBrand.setOrientation(LinearLayout.VERTICAL);loginBrand.setGravity(Gravity.START);
+        FrameLayout loginBrand=new FrameLayout(this);
         ImageView logo=new ImageView(this); logo.setImageResource(id.dbpro.central.monitor.R.drawable.dbpro_central_logo); logo.setScaleType(ImageView.ScaleType.CENTER_CROP); logo.setContentDescription("DBpro Central");styleLoginLogo(logo);
-        loginBrand.addView(logo,new LinearLayout.LayoutParams(dp(148),dp(148)));
-        TextView loginVersion=versionLabel(0xFF64748B);LinearLayout.LayoutParams lvp=new LinearLayout.LayoutParams(-2,-2);lvp.leftMargin=dp(11);lvp.topMargin=dp(-4);loginBrand.addView(loginVersion,lvp);
-        LinearLayout.LayoutParams brandParams=new LinearLayout.LayoutParams(dp(170),-2);brandParams.gravity=Gravity.CENTER_HORIZONTAL;page.addView(loginBrand,brandParams);
+        loginBrand.addView(logo,new FrameLayout.LayoutParams(dp(148),dp(148),Gravity.CENTER));
+        TextView loginVersion=versionLabel(0xFF64748B);
+        FrameLayout.LayoutParams lvp=new FrameLayout.LayoutParams(-2,-2,Gravity.START|Gravity.BOTTOM);
+        lvp.leftMargin=dp(22);
+        lvp.bottomMargin=dp(18);
+        loginBrand.addView(loginVersion,lvp);
+        LinearLayout.LayoutParams brandParams=new LinearLayout.LayoutParams(dp(170),dp(148));brandParams.gravity=Gravity.CENTER_HORIZONTAL;page.addView(loginBrand,brandParams);
         Space gap=new Space(this); page.addView(gap,new LinearLayout.LayoutParams(1,dp(18)));
         TextView loginTitle=text("CENTRAL DASHBOARD",20,0xFF0F172A,true);loginTitle.setGravity(Gravity.CENTER);page.addView(loginTitle,new LinearLayout.LayoutParams(-1,-2));
         EditText email=field("Email",false), pass=field("Password",true);
