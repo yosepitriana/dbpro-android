@@ -1,4 +1,5 @@
 name: Build Android APK
+# Trigger build after biometric login UI revision
 
 on:
   push:
