@@ -31,7 +31,7 @@ public class MainActivity extends Activity {
     private boolean dark;
     private boolean loading;
     private ObjectAnimator refreshAnimator;
-    private final Runnable refresh = new Runnable() { public void run() { loadDashboard(); timer.postDelayed(this, 8_000); } };
+    private final Runnable refresh = new Runnable() { public void run() { loadDashboard(); timer.postDelayed(this, 2_000); } };
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
@@ -232,7 +232,7 @@ public class MainActivity extends Activity {
         serviceList=sectionBox("SERVICE & CONTAINER");
         incidentList=sectionBox("RIWAYAT GANGGUAN");
         TextView logout=text("Keluar dari akun",14,0xFFDC2626,true);logout.setGravity(Gravity.CENTER);logout.setPadding(0,dp(24),0,dp(12));logout.setOnClickListener(v->{getPreferences(MODE_PRIVATE).edit().clear().apply();token=null;showLogin();});page.addView(logout);
-        timer.removeCallbacksAndMessages(null);loadDashboard(null);timer.postDelayed(refresh,8_000);
+        timer.removeCallbacksAndMessages(null);loadDashboard(null);timer.postDelayed(refresh,2_000);
     }
     private LinearLayout.LayoutParams cardParams(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(246));p.topMargin=dp(12);return p;}
     private LinearLayout sectionBox(String title){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(15),dp(14),dp(15),dp(15));box.setBackground(borderedBg(theme(Color.WHITE,0xFF111827),15,theme(0xFFE2E8F0,0xFF334155)));TextView t=text(title,15,theme(0xFF0F172A,0xFFF8FAFC),true);box.addView(t);LinearLayout list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);box.addView(list,new LinearLayout.LayoutParams(-1,-2));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(18);page.addView(box,p);return list;}
